@@ -25,7 +25,6 @@ Check out the [tutorial](https://testdriven.io/developing-a-single-page-app-with
     ```sh
     $ cd client
     $ npm install
-    $ npm run dev
-    ```
+    $ npm run dev5    
 
     Navigate to [http://localhost:5173](http://localhost:5173)

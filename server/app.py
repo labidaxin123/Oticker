@@ -1,66 +1,65 @@
-import uuid
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+import os
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from collections import OrderedDict
 
+basedir = os.path.abspath(os.path.dirname(__file__))
 
-BOOKS = [
-    {
-        'id': uuid.uuid4().hex,
-        'title': 'On the Road',
-        'author': 'Jack Kerouac',
-        'read': True
-    },
-    {
-        'id': uuid.uuid4().hex,
-        'title': 'Harry Potter and the Philosopher\'s Stone',
-        'author': 'J. K. Rowling',
-        'read': False
-    },
-    {
-        'id': uuid.uuid4().hex,
-        'title': 'Green Eggs and Ham',
-        'author': 'Dr. Seuss',
-        'read': True
-    }
-]
-
-# instantiate the app
 app = Flask(__name__)
-app.config.from_object(__name__)
+app.config['SECRET_KEY'] = 'hard to guess string'
+app.config['SQLALCHEMY_DATABASE_URI'] ='sqlite:///' + os.path.join(basedir, 'data.sqlite') 
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+class Book(db.Model):
+    __tablename__ = 'books'
+    id:int = db.Column(db.Integer, primary_key=True)
+    title:str = db.Column(db.String(100), unique=True)
+    author:str = db.Column(db.String(30), unique=True)
+    read:bool =db.Column(db.Boolean)
+
+
+def to_dict(books):
+    return OrderedDict(
+        id=books.id,
+        title=books.title,
+        author=books.author,
+        read=books.read
+    )
+
+
+@app.shell_context_processor
+def make_shell_context():
+    return dict(db=db, Book=Book)
 
 # enable CORS
 CORS(app, resources={r'/*': {'origins': '*'}})
 
 
 def remove_book(book_id):
-    for book in BOOKS:
-        if book['id'] == book_id:
-            BOOKS.remove(book)
-            return True
-    return False
+    Book.query.filter_by(id=book_id).delete()
+    db.session.commit()
 
 
-# sanity check route
-@app.route('/ping', methods=['GET'])
-def ping_pong():
-    return jsonify('pong!')
-
-
-@app.route('/books', methods=['GET', 'POST'])
+@app.route('/books', methods=['GET','POST'])
 def all_books():
     response_object = {'status': 'success'}
     if request.method == 'POST':
-        post_data = request.get_json()
-        BOOKS.append({
-            'id': uuid.uuid4().hex,
-            'title': post_data.get('title'),
-            'author': post_data.get('author'),
-            'read': post_data.get('read')
-        })
-        response_object['message'] = 'Book added!'
-    else:
-        response_object['books'] = BOOKS
+        data = request.get_json()
+        book=Book(
+            title=data.get('title'),
+            author=data.get('author'),
+            read=data.get('read')
+        )
+        db.session.add(book)
+        db.session.commit()
+    books=Book.query.all()
+    response_object['books'] = list(map(to_dict, books))
+
     return jsonify(response_object)
 
 
@@ -68,14 +67,15 @@ def all_books():
 def single_book(book_id):
     response_object = {'status': 'success'}
     if request.method == 'PUT':
-        post_data = request.get_json()
+        data = request.get_json()
         remove_book(book_id)
-        BOOKS.append({
-            'id': uuid.uuid4().hex,
-            'title': post_data.get('title'),
-            'author': post_data.get('author'),
-            'read': post_data.get('read')
-        })
+        book=Book(
+            title=data.get('title'),
+            author=data.get('author'),
+            read=data.get('read')
+        )
+        db.session.add(book)
+        db.session.commit()
         response_object['message'] = 'Book updated!'
     if request.method == 'DELETE':
         remove_book(book_id)
