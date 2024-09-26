@@ -1,48 +1,75 @@
 <template>
-  <div class="container">
+  <!-- main table -->
+  <div class="container-fluid">
     <div class="row">
       <div class="col-sm-10">
-        <h1>Books</h1>
+        <h1>业财对账系统</h1>
         <hr><br><br>
         <alert :message=message v-if="showMessage"></alert>
         <button
-          type="button"
-          class="btn btn-success btn-sm"
-          @click="toggleAddBookModal">
-          Add Book
-        </button>
+            type="button"
+            class="btn btn-danger btn-sm between"
+            @click="toggleSubmitConfirmModal">
+            提交
+          </button>
         <br><br>
-        <table class="table table-hover">
+        <table class="table">
           <thead>
             <tr>
-              <th scope="col">Title</th>
-              <th scope="col">Author</th>
-              <th scope="col">Read?</th>
-              <th></th>
+              <th scope="col">订单号</th>
+              <th scope="col">下单时间</th>
+              <th scope="col">结算时间</th>
+              <th scope="col">订单金额</th>
+              <th scope="col">账单金额</th>
+              <th scope="col">差异</th>
+              <th scope="col">核对金额</th>
+              <th scope="col">差异原因</th>
+              <th scope="col">对账处理</th>
+      
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(book, index) in books" :key="index">
-              <td>{{ book.title }}</td>
-              <td>{{ book.author }}</td>
+            <tr v-for="book in books" :key="book.order_id">
+              <td>{{ book.sales_order }}</td>
+              <td>{{ book.deal_time }}</td>
+              <td>{{ book.settle_time }}</td>
+              <td>{{ book.order_sum }}</td>
+              <td>{{ book.bill_sum }}</td>
+              <td>{{ book.variance }}</td>
+              <td><input
+                  type="number"
+                  class="form-control"
+                  id="addReason"
+                  :disabled=book.check
+                  v-model=book.modified_sum
+                  placeholder="请输入核对金额"></td>
               <td>
-                <span v-if="book.read">Yes</span>
-                <span v-else>No</span>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="addReason"
+                  :disabled=book.check
+                  v-model=book.reason
+                  @blur="updateBookTitle(book.reason)"
+                  placeholder="请输入差异原因">
               </td>
               <td>
-                <div class="btn-group" role="group">
+                <div>
                   <button
                     type="button"
-                    class="btn btn-warning btn-sm"
-                    @click="toggleEditBookModal(book)">
-                    Update
+                    class="btn btn-success btn-sm between"
+                    @click="handleCheck(book)"
+                    v-if="book.check">
+                    已对账
                   </button>
                   <button
                     type="button"
-                    class="btn btn-danger btn-sm"
-                    @click="handleDeleteBook(book)">
-                    Delete
+                    class="btn btn-warning btn-sm between"
+                    @click="handleCheck(book)"
+                    v-else>
+                    对账
                   </button>
+                  
                 </div>
               </td>
             </tr>
@@ -51,29 +78,31 @@
       </div>
     </div>
 
-    <!-- add new book modal -->
+    <!-- submit confirm modal -->
     <div
       ref="addBookModal"
       class="modal fade"
-      :class="{ show: activeAddBookModal, 'd-block': activeAddBookModal }"
+      :class="{ show: activeSubmitConfirmModal, 'd-block': activeSubmitConfirmModal }"
       tabindex="-1"
       role="dialog">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Add a new book</h5>
-            <button
+          <!-- <div class="modal-header"> -->
+            <!-- <h4 class="modal-title">是否确认提交已对账订单？确认后将不能更改</h4> -->
+            <!-- <button
               type="button"
               class="close"
               data-dismiss="modal"
               aria-label="Close"
-              @click="toggleAddBookModal">
+              @click="toggleSubmitConfirmModal">
               <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
+            </button> -->
+          <!-- </div> -->
           <div class="modal-body">
-            <form>
-              <div class="mb-3">
+            是否确认提交已对账订单？<br>
+            确认后将不能更改！<br><br>
+            <!-- <form> -->
+              <!-- <div class="mb-3">
                 <label for="addBookTitle" class="form-label">Title:</label>
                 <input
                   type="text"
@@ -98,96 +127,28 @@
                   id="addBookRead"
                   v-model="addBookForm.read">
                 <label class="form-check-label" for="addBookRead">Read?</label>
-              </div>
-              <div class="btn-group" role="group">
+              </div> -->
+              <!-- <div class="btn-group" role="group"> -->
                 <button
                   type="button"
-                  class="btn btn-primary btn-sm"
-                  @click="handleAddSubmit">
-                  Submit
+                  class="btn btn-danger btn-sm between"
+                  @click="handleSubmit(books)">
+                  确认
                 </button>
                 <button
                   type="button"
-                  class="btn btn-danger btn-sm"
-                  @click="handleAddReset">
-                  Reset
+                  class="btn btn-primary btn-sm between"
+                  @click="toggleSubmitConfirmModal">
+                  取消
                 </button>
-              </div>
-            </form>
+              <!-- </div> -->
+            <!-- </form> -->
           </div>
         </div>
       </div>
     </div>
-    <div v-if="activeAddBookModal" class="modal-backdrop fade show"></div>
-
+    <div v-if="activeSubmitConfirmModal" class="modal-backdrop fade show"></div>   
     <!-- edit book modal -->
-    <div
-      ref="editBookModal"
-      class="modal fade"
-      :class="{ show: activeEditBookModal, 'd-block': activeEditBookModal }"
-      tabindex="-1"
-      role="dialog">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Update</h5>
-            <button
-              type="button"
-              class="close"
-              data-dismiss="modal"
-              aria-label="Close"
-              @click="toggleEditBookModal">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <form>
-              <div class="mb-3">
-                <label for="editBookTitle" class="form-label">Title:</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="editBookTitle"
-                  v-model="editBookForm.title"
-                  placeholder="Enter title">
-              </div>
-              <div class="mb-3">
-                <label for="editBookAuthor" class="form-label">Author:</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="editBookAuthor"
-                  v-model="editBookForm.author"
-                  placeholder="Enter author">
-              </div>
-              <div class="mb-3 form-check">
-                <input
-                  type="checkbox"
-                  class="form-check-input"
-                  id="editBookRead"
-                  v-model="editBookForm.read">
-                <label class="form-check-label" for="editBookRead">Read?</label>
-              </div>
-              <div class="btn-group" role="group">
-                <button
-                  type="button"
-                  class="btn btn-primary btn-sm"
-                  @click="handleEditSubmit">
-                  Submit
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-danger btn-sm"
-                  @click="handleEditCancel">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div v-if="activeEditBookModal" class="modal-backdrop fade show"></div>
   </div>
 </template>
 
@@ -198,20 +159,10 @@ import Alert from './Alert.vue';
 export default {
   data() {
     return {
-      activeAddBookModal: false,
-      activeEditBookModal: false,
-      addBookForm: {
-        title: '',
-        author: '',
-        read: [],
-      },
+      activeSubmitConfirmModal: false,
+      button:'对账',
       books: [],
-      editBookForm: {
-        id: '',
-        title: '',
-        author: '',
-        read: [],
-      },
+      
       message: '',
       showMessage: false,
     };
@@ -220,19 +171,6 @@ export default {
     alert: Alert,
   },
   methods: {
-    addBook(payload) {
-      const path = 'http://localhost:5001/books';
-      axios.post(path, payload)
-        .then(() => {
-          this.getBooks();
-          this.message = 'Book added!';
-          this.showMessage = true;
-        })
-        .catch((error) => {
-          console.log(error);
-          this.getBooks();
-        });
-    },
     getBooks() {
       const path = 'http://localhost:5001/books';
       axios.get(path)
@@ -240,61 +178,25 @@ export default {
           this.books = res.data.books;
         })
         .catch((error) => {
-
           console.error(error);
         });
     },
-    handleAddReset() {
-      this.initForm();
+    updateSum(newSum){
+      book.modified_sum=newSum;
     },
-    handleAddSubmit() {
-      this.toggleAddBookModal();
-      let read = false;
-      if (this.addBookForm.read[0]) {
-        read = true;
-      }
-      const payload = {
-        title: this.addBookForm.title,
-        author: this.addBookForm.author,
-        read, // property shorthand
-      };
-      this.addBook(payload);
-      this.initForm();
+    updateReason(newReason) {
+      book.reason = newReason;
     },
-    handleDeleteBook(book) {
-      this.removeBook(book.id);
+    handleCheck(book) {
+      book.check=!book.check
     },
-    handleEditCancel() {
-      this.toggleEditBookModal(null);
-      this.initForm();
-      this.getBooks(); // why?
-    },
-    handleEditSubmit() {
-      this.toggleEditBookModal(null);
-      let read = false;
-      if (this.editBookForm.read) read = true;
-      const payload = {
-        title: this.editBookForm.title,
-        author: this.editBookForm.author,
-        read,
-      };
-      this.updateBook(payload, this.editBookForm.id);
-    },
-    initForm() {
-      this.addBookForm.title = '';
-      this.addBookForm.author = '';
-      this.addBookForm.read = [];
-      this.editBookForm.id = '';
-      this.editBookForm.title = '';
-      this.editBookForm.author = '';
-      this.editBookForm.read = [];
-    },
-    removeBook(bookID) {
-      const path = `http://localhost:5001/books/${bookID}`;
-      axios.delete(path)
+    handleSubmit(books){
+      const path = `http://localhost:5001/books/submit`
+      axios.post(path,books)
         .then(() => {
-          this.getBooks();
-          this.message = 'Book removed!';
+          this.toggleSubmitConfirmModal()
+          this.getBooks()
+          this.message = 'Orders Submited!';
           this.showMessage = true;
         })
         .catch((error) => {
@@ -302,43 +204,21 @@ export default {
           this.getBooks();
         });
     },
-    toggleAddBookModal() {
-      const body = document.querySelector('body');
-      this.activeAddBookModal = !this.activeAddBookModal;
-      if (this.activeAddBookModal) {
-        body.classList.add('modal-open');
-      } else {
-        body.classList.remove('modal-open');
-      }
-    },
-    toggleEditBookModal(book) {
-      if (book) {
-        this.editBookForm = book;
-      }
-      const body = document.querySelector('body');
-      this.activeEditBookModal = !this.activeEditBookModal;
-      if (this.activeEditBookModal) {
-        body.classList.add('modal-open');
-      } else{
-        body.classList.remove('modal-open');
-      }
-    },
-    updateBook(payload, bookID) {
-      const path = `http://localhost:5001/books/${bookID}`;
-      axios.put(path, payload)
-        .then(() => {
-          this.getBooks();
-          this.message = 'Book updated!';
-          this.showMessage = true;
-        })
-        .catch((error) => {
-          console.error(error);
-          this.getBooks();
-        });
-    },
+    toggleSubmitConfirmModal(){
+      this.activeSubmitConfirmModal=!this.activeSubmitConfirmModal
+    }
   },
+    
   created() {
     this.getBooks();
   },
+ 
 };
+
 </script>
+
+<style>
+.between {
+ margin-right: 8px;
+}
+</style>
