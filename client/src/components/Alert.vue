@@ -1,28 +1,36 @@
 <template>
-  <div v-if="showAlert" class="alert alert-success" role="alert">
-    <span>{{ message }}</span>
+  <div class="alert" :class="{'alert-success':showAlert}" role="alert">
+    {{ message }}
     <button type="button" class="close" @click="closeAlert">
       <span aria-hidden="true">&times;</span>
     </button>
   </div>
 </template>
 
+
+
 <script>
 export default {
   props: ['message'],
+  emits: ['close-alert'],
+
   data() {
     return {
-      message: '',
       showAlert: true,
+
     };
   },
   methods: {
     closeAlert() {
       this.showAlert = false;
+      this.$emit('close-alert');
     },
   },
 };
 </script>
+
+
+
 
 <style scoped>
 .alert {
