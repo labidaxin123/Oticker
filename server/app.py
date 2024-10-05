@@ -6,6 +6,8 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from collections import OrderedDict
+from flask_bcrypt import Bcrypt
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -53,23 +55,32 @@ def make_shell_context():
 # enable CORS
 CORS(app, resources={r'/*': {'origins': '*'}})
 
-# def check(oid):
-#     rc = Reconcile.query.get(oid)
-#     if rc:
-#         rc.check = not rc.check
-#         db.session.commit()
-#     else:
-#         print(f"No record found with ID {oid}")
 
-
+# 回传所有未对账的订单
 @app.route('/books', methods=['GET'])
-def all_books():
+def unchecked_books():
     response_object = {'status': 'success'}
-    # 只返回已提交未对账的订单
-    books=Reconcile.query.filter(Reconcile.check != True).all()
-    response_object['books'] = list(map(to_dict, books))
+    try:
+        # 只返回已提交未对账的订单
+        books=Reconcile.query.filter(Reconcile.check != True).all()
+        response_object['books'] = list(map(to_dict, books))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 405
     return jsonify(response_object)
 
+# 回传所有已对账的订单
+@app.route('/books/checked', methods=['GET'])
+def checked_books():
+    response_object = {'status': 'success'}
+    try:
+        # 只返回已提交未对账的订单
+        books=Reconcile.query.filter(Reconcile.check == True).all()
+        response_object['books'] = list(map(to_dict, books))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 405
+    return jsonify(response_object)
+
+# 处理“全部提交”按钮
 @app.route('/books/submit', methods=['POST'])
 def import_data():
     # 从请求中获取JSON数据
@@ -84,12 +95,28 @@ def import_data():
             item.modified_sum = item_data.get('modified_sum', item.modified_sum)
             item.check = item_data.get('check', item.check)
     db.session.commit()
-    return jsonify({"message": "Items updated successfully"}), 200
+    return jsonify({"message": "全部【已对账】提交成功！【未对账】已暂存！"}), 200
 
-# @app.route('/books/<int:oid>', methods=['PATCH'])
-# def handle_patch(oid):
-#     check(oid)
-#     return "Patch successful", 200
+# 处理每行的“提交”和“暂存”按钮
+@app.route('/books/<id>', methods=['POST'])
+def handle_patch(id):
+    data = request.get_json()  # 请求体需要是JSON格式
+    if not data:
+        return jsonify({"error": "Invalid data format"}), 400
+    order = Reconcile.query.filter(Reconcile.order_id==id).first()
+    if order:
+        so=order.sales_order
+        order.reason = data.get('reason')
+        order.modified_sum = data.get('modified_sum')
+        order.check = data.get('check')
+        db.session.commit()
+        if order.check:
+            return jsonify({"message": "【订单"+str(so)+"】【已对账】提交成功！"}), 200
+        else:
+            return jsonify({"message": "【订单"+str(so)+"】暂存成功！"}), 200
+    else:
+        return jsonify({"error": "订单"+str(so)+"未找到"}), 404
+
 
 
 if __name__ == '__main__':
